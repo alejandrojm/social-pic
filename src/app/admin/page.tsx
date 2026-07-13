@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
         .single()
 
       if (err || !data) {
-        setError('Error al crear el evento. Verifica tu conexión con Supabase.')
+        setError(`Error: ${err?.code} — ${err?.message || 'Sin respuesta de Supabase'}`)
         console.error(err)
         return
       }
