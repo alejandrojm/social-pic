@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import QRCode from 'react-qr-code'
 import { supabase, Event, Photo } from '@/lib/supabase'
-import { getAdminSession, clearAdminSession } from '@/lib/auth'
+import { getAdminSession, clearAdminSession, saveAdminSession } from '@/lib/auth'
 import { formatDate, timeAgo } from '@/lib/utils'
 
 type Tab = 'photos' | 'qr' | 'settings'
@@ -17,6 +17,10 @@ export default function EventAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('photos')
   const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [loading, setLoading] = useState(true)
+  const [pinVerified, setPinVerified] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pinLoading, setPinLoading] = useState(false)
   const [qrUrl, setQrUrl] = useState('')
   const [newPin, setNewPin] = useState('')
   const [savingPin, setSavingPin] = useState(false)
@@ -24,16 +28,62 @@ export default function EventAdminPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
 
   useEffect(() => {
+    // Check if already have a valid session
     const session = getAdminSession()
-    if (!session || session.eventId !== id) {
-      router.push('/admin')
-      return
+    if (session && session.eventId === id) {
+      setPinVerified(true)
+      if (typeof window !== 'undefined') {
+        setQrUrl(`${window.location.origin}/upload/${id}`)
+      }
+      loadData()
+    } else {
+      // No session — show PIN form but still load event name for display
+      setLoading(false)
     }
-    if (typeof window !== 'undefined') {
-      setQrUrl(`${window.location.origin}/upload/${id}`)
-    }
-    loadData()
   }, [id])
+
+  const handlePinVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pinInput.trim()) return
+    setPinLoading(true)
+    setPinError('')
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error || !data) {
+        setPinError('Evento no encontrado.')
+        return
+      }
+      const allPins = [data.admin_pin, ...(data.extra_pins || [])]
+      if (!allPins.includes(pinInput.trim())) {
+        setPinError('PIN incorrecto. Intenta de nuevo.')
+        return
+      }
+      saveAdminSession({
+        eventId: data.id,
+        eventName: data.name,
+        pin: pinInput.trim(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      })
+      setEvent(data)
+      setPinVerified(true)
+      if (typeof window !== 'undefined') {
+        setQrUrl(`${window.location.origin}/upload/${id}`)
+      }
+      // Load photos
+      const { data: photosData } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('event_id', id)
+        .order('created_at', { ascending: false })
+      if (photosData) setPhotos(photosData)
+    } finally {
+      setPinLoading(false)
+    }
+  }
 
   // Realtime subscription for new photos
   useEffect(() => {
@@ -137,7 +187,65 @@ export default function EventAdminPage() {
     )
   }
 
+  // PIN verification gate
+  if (!pinVerified) {
+    return (
+      <div className="page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <nav className="navbar">
+          <div className="navbar-inner">
+            <Link href="/" className="navbar-brand">📸 Social Pic</Link>
+          </div>
+        </nav>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+          <div className="animate-fade-in-scale" style={{ width: '100%', maxWidth: 420 }}>
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ fontSize: '3rem', marginBottom: 12 }}>🔐</div>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', marginBottom: 8 }}>Acceso al panel</h1>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Ingresa tu PIN para administrar este evento</p>
+            </div>
+            <div className="card">
+              <div className="card-body" style={{ padding: 32 }}>
+                {pinError && (
+                  <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#EF4444', fontSize: '0.875rem', marginBottom: 20 }}>
+                    ⚠️ {pinError}
+                  </div>
+                )}
+                <form onSubmit={handlePinVerify} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className="form-group">
+                    <label className="form-label">PIN de administrador</label>
+                    <input
+                      id="pin-verify-input"
+                      className="form-input"
+                      type="text"
+                      placeholder="Tu PIN"
+                      value={pinInput}
+                      onChange={e => setPinInput(e.target.value)}
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <button
+                    id="pin-verify-btn"
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={pinLoading}
+                    style={{ width: '100%' }}
+                  >
+                    {pinLoading
+                      ? <span className="animate-spin" style={{ display: 'inline-block', width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }} />
+                      : '🔑 Entrar al panel'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!event) return null
+
 
   return (
     <div className="page">
