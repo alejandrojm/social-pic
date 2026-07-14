@@ -29,8 +29,12 @@ export default function AdminLoginPage() {
         .select('*')
         .eq('id', eventCode.trim())
       
-      if (err || !events?.length) {
-        setError('Evento no encontrado. Verifica el código.')
+      if (err) {
+        setError(`Error de Supabase: ${err.code} — ${err.message}`)
+        return
+      }
+      if (!events?.length) {
+        setError('Evento no encontrado. Asegúrate de pegar el UUID completo del evento.')
         return
       }
       const event = events[0]
