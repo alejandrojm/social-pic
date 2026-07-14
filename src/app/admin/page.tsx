@@ -12,6 +12,7 @@ export default function AdminLoginPage() {
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [createdEventId, setCreatedEventId] = useState('')
 
   // Create event form
   const [eventName, setEventName] = useState('')
@@ -88,10 +89,52 @@ export default function AdminLoginPage() {
         pin: adminPin.trim(),
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       })
-      router.push(`/admin/events/${data.id}`)
+      setCreatedEventId(data.id)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Success screen after event creation
+  if (createdEventId) {
+    const adminUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/admin/events/${createdEventId}`
+      : `/admin/events/${createdEventId}`
+    return (
+      <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <nav className="navbar">
+          <div className="navbar-inner">
+            <Link href="/" className="navbar-brand">📸 Social Pic</Link>
+          </div>
+        </nav>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+          <div className="animate-fade-in-scale" style={{ width: '100%', maxWidth: 480, textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎉</div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', marginBottom: 8 }}>¡Evento creado!</h1>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 32 }}>
+              Guarda este link — es tu acceso al panel de administración:
+            </p>
+            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-accent)', borderRadius: 'var(--radius-md)', padding: '14px 18px', marginBottom: 24, wordBreak: 'break-all', fontSize: '0.82rem', color: 'var(--text-accent)', textAlign: 'left' }}>
+              {adminUrl}
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href={`/admin/events/${createdEventId}`} className="btn btn-primary btn-lg">
+                🎛️ Ir al panel del evento
+              </Link>
+              <button
+                className="btn btn-secondary"
+                onClick={() => { navigator.clipboard.writeText(adminUrl); alert('Link copiado!') }}
+              >
+                📋 Copiar link
+              </button>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 24 }}>
+              Tu PIN: <strong style={{ color: 'var(--text-accent)' }}>{adminPin}</strong> — guárdalo también.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
