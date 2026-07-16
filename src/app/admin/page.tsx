@@ -24,11 +24,20 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+
+    const code = eventCode.trim()
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(code)) {
+      setError('El ID del evento debe ser un formato UUID válido (ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890).')
+      setLoading(false)
+      return
+    }
+
     try {
       const { data: events, error: err } = await supabase
         .from('events')
         .select('*')
-        .eq('id', eventCode.trim())
+        .eq('id', code)
       
       if (err) {
         setError(`Error de Supabase: ${err.code} — ${err.message}`)
