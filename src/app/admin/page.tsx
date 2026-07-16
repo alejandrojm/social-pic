@@ -25,34 +25,41 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
 
-    const code = eventCode.trim()
+    const searchInput = eventCode.trim()
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(code)) {
-      setError('El ID del evento debe ser un formato UUID válido (ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890).')
-      setLoading(false)
-      return
-    }
+    const isUuid = uuidRegex.test(searchInput)
 
     try {
-      const { data: events, error: err } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', code)
+      let query = supabase.from('events').select('*')
+      
+      if (isUuid) {
+        query = query.eq('id', searchInput)
+      } else {
+        query = query.ilike('name', searchInput)
+      }
+
+      const { data: events, error: err } = await query
       
       if (err) {
         setError(`Error de Supabase: ${err.code} — ${err.message}`)
         return
       }
       if (!events?.length) {
-        setError('Evento no encontrado. Asegúrate de pegar el UUID completo del evento.')
+        setError('Evento no encontrado. Asegúrate de escribir el nombre de tu evento exactamente o su ID.')
         return
       }
-      const event = events[0]
-      const allPins = [event.admin_pin, ...(event.extra_pins || [])]
-      if (!allPins.includes(pin.trim())) {
-        setError('PIN incorrecto.')
+
+      // Si hay múltiples eventos con el mismo nombre, buscamos el que coincida con el PIN
+      const event = events.find(ev => {
+        const allPins = [ev.admin_pin, ...(ev.extra_pins || [])]
+        return allPins.includes(pin.trim())
+      })
+
+      if (!event) {
+        setError('PIN incorrecto para este evento o no coincide con los eventos encontrados.')
         return
       }
+
       saveAdminSession({
         eventId: event.id,
         eventName: event.name,
@@ -257,18 +264,18 @@ export default function AdminLoginPage() {
               ) : (
                 <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   <div className="form-group">
-                    <label className="form-label">ID único del evento (UUID largo)</label>
+                    <label className="form-label">Nombre del evento (o ID)</label>
                     <input
                       id="event-id"
                       className="form-input"
                       type="text"
-                      placeholder="ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      placeholder="ej: Mi Boda"
                       value={eventCode}
                       onChange={e => setEventCode(e.target.value)}
                       required
                     />
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Ingresa el ID completo que copiaste al crear tu evento, o búscalo en tu panel de Supabase.
+                      Escribe el nombre de tu evento exactamente como lo creaste (o usa su ID UUID largo).
                     </span>
                   </div>
                   <div className="form-group">
