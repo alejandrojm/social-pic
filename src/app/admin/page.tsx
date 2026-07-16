@@ -257,16 +257,19 @@ export default function AdminLoginPage() {
               ) : (
                 <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   <div className="form-group">
-                    <label className="form-label">ID del evento</label>
+                    <label className="form-label">ID único del evento (UUID largo)</label>
                     <input
                       id="event-id"
                       className="form-input"
                       type="text"
-                      placeholder="Pega el ID del evento aquí"
+                      placeholder="ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                       value={eventCode}
                       onChange={e => setEventCode(e.target.value)}
                       required
                     />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Ingresa el ID completo que copiaste al crear tu evento, o búscalo en tu panel de Supabase.
+                    </span>
                   </div>
                   <div className="form-group">
                     <label className="form-label">PIN de administrador</label>
